@@ -9,7 +9,77 @@ import "./leafletWorkaround.ts";
 
 // Deterministic random number generator
 import luck from "./luck.ts";
-import "./style.css";
+
+interface Cell {
+  readonly i: number;
+  readonly j: number;
+}
+
+export class Board {
+  readonly tileWidth: number;
+  readonly tileVisibilityRadius: number;
+
+  private readonly knownCells: Map<string, Cell>;
+
+  constructor(tileWidth: number, tileVisibilityRadius: number) {
+    // ...
+    this.tileWidth = tileWidth;
+    this.tileVisibilityRadius = tileVisibilityRadius;
+    this.knownCells = new Map();
+  }
+
+  private getCanonicalCell(cell: Cell): Cell {
+    const { i, j } = cell;
+    const key = [i, j].toString();
+    // ...
+    if (!this.knownCells.has(key)) {
+      this.knownCells.set(key, cell);
+    }
+    return this.knownCells.get(key)!;
+  }
+
+  getCellForPoint(point: leaflet.LatLng): Cell {
+    return this.getCanonicalCell({
+      // ...
+      i: Math.floor(point.lat / this.tileWidth),
+      j: Math.floor(point.lng / this.tileWidth),
+    });
+  }
+
+  getCellBounds(cell: Cell): leaflet.LatLngBounds {
+    // ...
+    return leaflet.latLngBounds([
+      [cell.i, cell.j],
+      [
+        SF_CHINATOWN.lat +
+          (Math.round((cell.i - SF_CHINATOWN.lat) / TILE_DEGREES) + 1) *
+            TILE_DEGREES,
+        SF_CHINATOWN.lng +
+          Math.round((cell.j - SF_CHINATOWN.lng) / TILE_DEGREES + 1) *
+            TILE_DEGREES,
+      ],
+    ]);
+  }
+
+  getCellsNearPoint(point: leaflet.LatLng): Cell[] {
+    const resultCells: Cell[] = [];
+    const originCell = this.getCellForPoint(point);
+    // ...
+    const startI = originCell.i - this.tileVisibilityRadius;
+    const endI = originCell.i + this.tileVisibilityRadius;
+    const startJ = originCell.j - this.tileVisibilityRadius;
+    const endJ = originCell.j + this.tileVisibilityRadius;
+
+    for (let i = startI; i <= endI; i++) {
+      for (let j = startJ; j <= endJ; j++) {
+        resultCells.push(this.getCanonicalCell({ i, j }));
+      }
+    }
+    return resultCells;
+  }
+}
+
+const testBoard: Board = new Board(16, 16);
 
 const app = document.querySelector<HTMLDivElement>("#app")!;
 
@@ -62,12 +132,18 @@ const statusPanel = document.querySelector<HTMLDivElement>("#statusPanel")!; // 
 statusPanel.innerHTML = "No points yet...";
 
 // Add caches to the map by cell numbers
-function spawnCache(i: number, j: number) {
+function spawnCache(cell: Cell) {
   // Convert cell numbers into lat/lng bounds
+  console.log(testBoard.getCellForPoint(leaflet.latLng(cell.i, cell.j)));
   const origin = SF_CHINATOWN;
   const bounds = leaflet.latLngBounds([
-    [origin.lat + i * TILE_DEGREES, origin.lng + j * TILE_DEGREES],
-    [origin.lat + (i + 1) * TILE_DEGREES, origin.lng + (j + 1) * TILE_DEGREES],
+    [cell.i, cell.j],
+    [
+      origin.lat +
+        (Math.round((cell.i - origin.lat) / TILE_DEGREES) + 1) * TILE_DEGREES,
+      origin.lng +
+        Math.round((cell.j - origin.lng) / TILE_DEGREES + 1) * TILE_DEGREES,
+    ],
   ]);
 
   // Add a rectangle to the map to represent the cache
@@ -77,12 +153,23 @@ function spawnCache(i: number, j: number) {
   // Handle interactions with the cache
   rect.bindPopup(() => {
     // Each cache has a random point value, mutable by the player
-    let pointValue = Math.floor(luck([i, j, "initialValue"].toString()) * 100);
+    let pointValue = Math.floor(
+      luck(
+        [
+          Math.round(cell.i * TILE_DEGREES - origin.lat),
+          Math.round(cell.j * TILE_DEGREES - origin.lng),
+          "initialValue",
+        ].toString()
+      ) * 100
+    );
 
     // The popup offers a description and button
     const popupDiv = document.createElement("div");
     popupDiv.innerHTML = `
-                <div>There is a cache here at "${i},${j}". It has value <span id="value">${pointValue}</span>.</div>
+                <div>There is a cache here at "${cell.i}:${cell.j}#${
+      testBoard.getCellsNearPoint(cell).length
+    }
+    )}". It has value <span id="value">${pointValue}</span>.</div>
                 <button id="poke">poke</button><button id="place">place</button>`;
 
     // Clicking the button decrements the cache's value and increments the player's points
@@ -117,7 +204,10 @@ for (let i = -NEIGHBORHOOD_SIZE; i < NEIGHBORHOOD_SIZE; i++) {
   for (let j = -NEIGHBORHOOD_SIZE; j < NEIGHBORHOOD_SIZE; j++) {
     // If location i,j is lucky enough, spawn a cache!
     if (luck([i, j].toString()) < CACHE_SPAWN_PROBABILITY) {
-      spawnCache(i, j);
+      spawnCache({
+        i: SF_CHINATOWN.lat + i * TILE_DEGREES,
+        j: SF_CHINATOWN.lng + j * TILE_DEGREES,
+      });
     }
   }
 }
