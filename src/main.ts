@@ -139,10 +139,8 @@ function spawnCache(cell: Cell) {
   const bounds = leaflet.latLngBounds([
     [cell.i, cell.j],
     [
-      origin.lat +
-        (Math.round((cell.i - origin.lat) / TILE_DEGREES) + 1) * TILE_DEGREES,
-      origin.lng +
-        Math.round((cell.j - origin.lng) / TILE_DEGREES + 1) * TILE_DEGREES,
+      origin.lat + ((cell.i - origin.lat) / TILE_DEGREES + 1) * TILE_DEGREES,
+      origin.lng + (cell.j - origin.lng) / TILE_DEGREES + 1 * TILE_DEGREES,
     ],
   ]);
 
@@ -156,8 +154,8 @@ function spawnCache(cell: Cell) {
     let pointValue = Math.floor(
       luck(
         [
-          Math.round(cell.i * TILE_DEGREES - origin.lat),
-          Math.round(cell.j * TILE_DEGREES - origin.lng),
+          cell.i * TILE_DEGREES - origin.lat,
+          cell.j * TILE_DEGREES - origin.lng,
           "initialValue",
         ].toString()
       ) * 100
