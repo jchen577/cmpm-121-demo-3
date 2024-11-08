@@ -41,8 +41,8 @@ export class Board {
   getCellForPoint(point: leaflet.LatLng): Cell {
     return this.getCanonicalCell({
       // ...
-      i: Math.floor(point.lat / this.tileWidth),
-      j: Math.floor(point.lng / this.tileWidth),
+      i: point.lat,
+      j: point.lng,
     });
   }
 
