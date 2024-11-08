@@ -9,11 +9,35 @@ import "./leafletWorkaround.ts";
 
 // Deterministic random number generator
 import luck from "./luck.ts";
+//import { latLng } from "npm:@types/leaflet@^1.9.14";
 
 interface Cell {
   readonly i: number;
   readonly j: number;
 }
+
+interface Momento<T> {
+  toMomento(): T;
+  fromMomento(momento: T): void;
+}
+
+/*class Geocache implements Momento<string> {
+  i: number;
+  j: number;
+  numCoins: number;
+  constructor() {
+    this.i = 0;
+    this.j = 1;
+    this.numCoins = 2;
+  }
+  toMomento() {
+    return this.numCoins.toString();
+  }
+
+  fromMomento(momento: string) {
+    this.numCoins = parseInt(momento);
+  }
+}*/
 
 export class Board {
   readonly tileWidth: number;
@@ -77,8 +101,6 @@ export class Board {
   }
 }
 
-const testBoard: Board = new Board(16, 16);
-
 const app = document.querySelector<HTMLDivElement>("#app")!;
 
 const _canvas = document.getElementById("statusPanel");
@@ -121,6 +143,8 @@ leaflet
 
 // Add a marker to represent the player
 const playerMarker = leaflet.marker(SF_CHINATOWN);
+let playerPosI = SF_CHINATOWN.lat;
+let playerPosJ = SF_CHINATOWN.lng;
 playerMarker.bindTooltip("You are here");
 playerMarker.addTo(map);
 
@@ -129,20 +153,50 @@ let playerPoints = 0;
 const statusPanel = document.querySelector<HTMLDivElement>("#statusPanel")!; // element `statusPanel` is defined in index.html
 statusPanel.innerHTML = "No points yet...";
 
+const leftButton = document.createElement("button");
+leftButton.innerHTML = "⬅️";
+app.append(leftButton);
+const rightButton = document.createElement("button");
+rightButton.innerHTML = "⬆️";
+app.append(rightButton);
+const upButton = document.createElement("button");
+upButton.innerHTML = "➡️";
+app.append(upButton);
+const southButton = document.createElement("button");
+southButton.innerHTML = "⬇️";
+app.append(southButton);
+
+leftButton.onclick = () => {
+  const newPos = leaflet.latLng(playerPosI, playerPosJ - 0.0001);
+  playerMarker.setLatLng(newPos);
+  playerPosJ = playerPosJ - 0.0001;
+  map.panTo(newPos);
+};
+southButton.onclick = () => {
+  const newPos = leaflet.latLng(playerPosI - 0.0001, playerPosJ);
+  playerMarker.setLatLng(newPos);
+  playerPosI = playerPosI - 0.0001;
+  map.panTo(newPos);
+};
+upButton.onclick = () => {
+  const newPos = leaflet.latLng(playerPosI, playerPosJ + 0.0001);
+  playerMarker.setLatLng(newPos);
+  playerPosJ = playerPosJ + 0.0001;
+  map.panTo(newPos);
+};
+rightButton.onclick = () => {
+  const newPos = leaflet.latLng(playerPosI + 0.0001, playerPosJ);
+  playerMarker.setLatLng(newPos);
+  playerPosI = playerPosI + 0.0001;
+  map.panTo(newPos);
+};
+
 // Add caches to the map by cell numbers
 function spawnCache(cell: Cell) {
+  const newBoard: Board = new Board(16, 16);
+  const boundedCell = newBoard.getCellForPoint(leaflet.latLng(cell.i, cell.j));
+  const bounds = newBoard.getCellBounds(boundedCell);
   // Convert cell numbers into lat/lng bounds
-  console.log(testBoard.getCellForPoint(leaflet.latLng(cell.i, cell.j)));
-  const origin = SF_CHINATOWN;
-  const cellGridI = (cell.i - origin.lat) / TILE_DEGREES;
-  const cellGridJ = (cell.j - origin.lng) / TILE_DEGREES;
-  const bounds = leaflet.latLngBounds([
-    [cell.i, cell.j],
-    [
-      origin.lat + (cellGridI + 1) * TILE_DEGREES,
-      origin.lng + (cellGridJ + 1) * TILE_DEGREES,
-    ],
-  ]);
 
   // Add a rectangle to the map to represent the cache
   const rect = leaflet.rectangle(bounds);
@@ -159,7 +213,7 @@ function spawnCache(cell: Cell) {
     const popupDiv = document.createElement("div");
     popupDiv.innerHTML = `
                 <div>There is a cache here at "${cell.i}:${cell.j}#${
-      testBoard.getCellsNearPoint(cell).length
+      newBoard.getCellsNearPoint(cell).length
     }
     )}". It has value <span id="value">${pointValue}</span>.</div>
                 <button id="poke">poke</button><button id="place">place</button>`;
