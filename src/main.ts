@@ -48,15 +48,13 @@ export class Board {
 
   getCellBounds(cell: Cell): leaflet.LatLngBounds {
     // ...
+    const cellGridI = Math.round((cell.i - SF_CHINATOWN.lat) / TILE_DEGREES);
+    const cellGridJ = Math.round((cell.j - SF_CHINATOWN.lng) / TILE_DEGREES);
     return leaflet.latLngBounds([
       [cell.i, cell.j],
       [
-        SF_CHINATOWN.lat +
-          (Math.round((cell.i - SF_CHINATOWN.lat) / TILE_DEGREES) + 1) *
-            TILE_DEGREES,
-        SF_CHINATOWN.lng +
-          Math.round((cell.j - SF_CHINATOWN.lng) / TILE_DEGREES + 1) *
-            TILE_DEGREES,
+        SF_CHINATOWN.lat + (cellGridI + 1) * TILE_DEGREES,
+        SF_CHINATOWN.lng + (cellGridJ + 1) * TILE_DEGREES,
       ],
     ]);
   }
@@ -136,11 +134,13 @@ function spawnCache(cell: Cell) {
   // Convert cell numbers into lat/lng bounds
   console.log(testBoard.getCellForPoint(leaflet.latLng(cell.i, cell.j)));
   const origin = SF_CHINATOWN;
+  const cellGridI = (cell.i - origin.lat) / TILE_DEGREES;
+  const cellGridJ = (cell.j - origin.lng) / TILE_DEGREES;
   const bounds = leaflet.latLngBounds([
     [cell.i, cell.j],
     [
-      origin.lat + ((cell.i - origin.lat) / TILE_DEGREES + 1) * TILE_DEGREES,
-      origin.lng + (cell.j - origin.lng) / TILE_DEGREES + 1 * TILE_DEGREES,
+      origin.lat + (cellGridI + 1) * TILE_DEGREES,
+      origin.lng + (cellGridJ + 1) * TILE_DEGREES,
     ],
   ]);
 
@@ -152,13 +152,7 @@ function spawnCache(cell: Cell) {
   rect.bindPopup(() => {
     // Each cache has a random point value, mutable by the player
     let pointValue = Math.floor(
-      luck(
-        [
-          cell.i * TILE_DEGREES - origin.lat,
-          cell.j * TILE_DEGREES - origin.lng,
-          "initialValue",
-        ].toString()
-      ) * 100
+      luck([cell.i, cell.j, "initialValue"].toString()) * 100
     );
 
     // The popup offers a description and button
