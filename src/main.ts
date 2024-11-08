@@ -206,7 +206,7 @@ function spawnCache(cell: Cell) {
   rect.bindPopup(() => {
     // Each cache has a random point value, mutable by the player
     let pointValue = Math.floor(
-      luck([cell.i, cell.j, "initialValue"].toString()) * 100
+      luck([cell.i, cell.j, "initialValue"].toString()) * 100,
     );
 
     // The popup offers a description and button
