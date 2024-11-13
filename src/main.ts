@@ -17,7 +17,7 @@ class CacheMemento {
 
 class CacheFlyweight {
   private static cacheMap: Map<string, CacheFlyweight> = new Map();
-
+  public maxVal: number = 0;
   // The getCache method ensures that we return an existing flyweight or create a new one if it doesn't exist
   static getCache(i: number, j: number): CacheFlyweight {
     const key = `${i},${j}`;
@@ -33,6 +33,7 @@ class CacheFlyweight {
     this.pointValue = Math.floor(
       luck([this.i, this.j, "initialValue"].toString()) * 100,
     );
+    this.maxVal = this.pointValue;
   }
 
   createMemento(): CacheMemento {
@@ -52,6 +53,9 @@ class CacheFlyweight {
   // Method to decrement points
   decrementPoints(): void {
     this.pointValue--;
+  }
+  resetCacheValues(): void {
+    this.pointValue = this.maxVal;
   }
 }
 
@@ -121,11 +125,22 @@ leaflet
   .addTo(map);
 
 // Add a marker to represent the player
-const playerMarker = leaflet.marker(SF_CHINATOWN);
-let playerPosI = SF_CHINATOWN.lat;
-let playerPosJ = SF_CHINATOWN.lng;
+const savedPosition = localStorage.getItem("playerPosition");
+let playerPosI: number;
+let playerPosJ: number;
+if (savedPosition) {
+  // If a position was saved in localStorage, use it to update the player's position
+  const position = JSON.parse(savedPosition);
+  playerPosI = position.lat;
+  playerPosJ = position.lng;
+} else {
+  playerPosI = SF_CHINATOWN.lat;
+  playerPosJ = SF_CHINATOWN.lng;
+}
+const playerMarker = leaflet.marker(leaflet.latLng(playerPosI, playerPosJ));
 playerMarker.bindTooltip("You are here");
 playerMarker.addTo(map);
+map.panTo(leaflet.latLng(playerPosI, playerPosJ));
 
 // Display the player's points
 let playerPoints = 0;
@@ -144,12 +159,58 @@ app.append(upButton);
 const southButton = document.createElement("button");
 southButton.innerHTML = "⬇️";
 app.append(southButton);
+const teleportButton = document.createElement("button");
+teleportButton.innerHTML = "🌐";
+app.append(teleportButton);
+const resetButton = document.createElement("button");
+resetButton.innerHTML = "🚮";
+app.append(resetButton);
+resetButton.onclick = () => {
+  if (confirm("Are you sure you want to reset all progress?")) {
+    localStorage.setItem(
+      "playerPosition",
+      JSON.stringify({ lat: SF_CHINATOWN.lat, lng: SF_CHINATOWN.lng }),
+    );
+    playerPosI = SF_CHINATOWN.lat;
+    playerPosJ = SF_CHINATOWN.lng;
+    playerMarker.setLatLng(leaflet.latLng(SF_CHINATOWN.lat, SF_CHINATOWN.lng));
+    map.panTo(leaflet.latLng(SF_CHINATOWN.lat, SF_CHINATOWN.lng));
+    updateNeighborhood(leaflet.latLng(SF_CHINATOWN.lat, SF_CHINATOWN.lng));
+    flyWeights.forEach((flyWeight) => {
+      flyWeight.resetCacheValues();
+    });
+    playerPoints = 0;
+  }
+};
+teleportButton.onclick = () => {
+  navigator.geolocation.getCurrentPosition(onLocationFound, onLocationError);
+};
+function onLocationFound(position: GeolocationPosition) {
+  playerMarker.setLatLng(
+    leaflet.latLng(position.coords.latitude, position.coords.longitude),
+  );
+  playerPosI = position.coords.latitude;
+  playerPosJ = position.coords.longitude;
+  map.panTo(
+    leaflet.latLng(position.coords.latitude, position.coords.longitude),
+  );
+  updateNeighborhood(
+    leaflet.latLng(position.coords.latitude, position.coords.longitude),
+  );
+}
+function onLocationError() {
+  alert(`Dunno where you are. Sorry :c`);
+}
 
 leftButton.onclick = () => {
   const newPos = leaflet.latLng(playerPosI, playerPosJ - 0.0001);
   playerMarker.setLatLng(newPos);
   playerPosJ = playerPosJ - 0.0001;
   map.panTo(newPos);
+  localStorage.setItem(
+    "playerPosition",
+    JSON.stringify({ lat: newPos.lat, lng: newPos.lng }),
+  );
   updateNeighborhood(newPos);
 };
 southButton.onclick = () => {
@@ -157,6 +218,10 @@ southButton.onclick = () => {
   playerMarker.setLatLng(newPos);
   playerPosI = playerPosI - 0.0001;
   map.panTo(newPos);
+  localStorage.setItem(
+    "playerPosition",
+    JSON.stringify({ lat: newPos.lat, lng: newPos.lng }),
+  );
   updateNeighborhood(newPos);
 };
 upButton.onclick = () => {
@@ -164,6 +229,10 @@ upButton.onclick = () => {
   playerMarker.setLatLng(newPos);
   playerPosJ = playerPosJ + 0.0001;
   map.panTo(newPos);
+  localStorage.setItem(
+    "playerPosition",
+    JSON.stringify({ lat: newPos.lat, lng: newPos.lng }),
+  );
   updateNeighborhood(newPos);
 };
 rightButton.onclick = () => {
@@ -171,15 +240,19 @@ rightButton.onclick = () => {
   playerMarker.setLatLng(newPos);
   playerPosI = playerPosI + 0.0001;
   map.panTo(newPos);
+  localStorage.setItem(
+    "playerPosition",
+    JSON.stringify({ lat: newPos.lat, lng: newPos.lng }),
+  );
   updateNeighborhood(newPos);
 };
 
 const cacheManager = new CacheManager();
-
+const flyWeights: CacheFlyweight[] = [];
 // Add caches to the map by cell numbers
 function spawnCache(i: number, j: number) {
   const cacheFlyweight = CacheFlyweight.getCache(i, j);
-
+  flyWeights.push(cacheFlyweight);
   // Convert grid cell to lat/lng bounds
   const origin = SF_CHINATOWN;
   const bounds = leaflet.latLngBounds([
