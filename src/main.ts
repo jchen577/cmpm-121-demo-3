@@ -11,100 +11,79 @@ import "./leafletWorkaround.ts";
 import luck from "./luck.ts";
 //import { latLng } from "npm:@types/leaflet@^1.9.14";
 
-interface Cell {
-  readonly i: number;
-  readonly j: number;
+class CacheMemento {
+  constructor(public i: number, public j: number, public pointValue: number) {}
 }
 
-interface Momento<T> {
-  toMomento(): T;
-  fromMomento(momento: T): void;
+class CacheFlyweight {
+  private static cacheMap: Map<string, CacheFlyweight> = new Map();
+
+  // The getCache method ensures that we return an existing flyweight or create a new one if it doesn't exist
+  static getCache(i: number, j: number): CacheFlyweight {
+    const key = `${i},${j}`;
+    if (!this.cacheMap.has(key)) {
+      this.cacheMap.set(key, new CacheFlyweight(i, j));
+    }
+    return this.cacheMap.get(key)!;
+  }
+
+  // The constructor initializes the cache with its i, j coordinates and the pointValue
+  private constructor(public i: number, public j: number) {
+    // Initialize pointValue in the constructor
+    this.pointValue = Math.floor(
+      luck([this.i, this.j, "initialValue"].toString()) * 100,
+    );
+  }
+
+  createMemento(): CacheMemento {
+    return new CacheMemento(this.i, this.j, this.pointValue);
+  }
+
+  // Method to restore the cache's state from a memento
+  restoreFromMemento(memento: CacheMemento): void {
+    this.i = memento.i;
+    this.j = memento.j;
+    this.pointValue = memento.pointValue;
+  }
+
+  // Cache properties
+  pointValue: number; // Initialize this in the constructor
+
+  // Method to decrement points
+  decrementPoints(): void {
+    this.pointValue--;
+  }
 }
 
-/*class Geocache implements Momento<string> {
-  i: number;
-  j: number;
-  numCoins: number;
-  constructor() {
-    this.i = 0;
-    this.j = 1;
-    this.numCoins = 2;
-  }
-  toMomento() {
-    return this.numCoins.toString();
+class CacheManager {
+  private savedCaches: Map<string, CacheMemento> = new Map();
+
+  // Save cache state
+  saveCacheState(i: number, j: number): void {
+    const cacheFlyweight = CacheFlyweight.getCache(i, j);
+    const memento = cacheFlyweight.createMemento();
+    this.savedCaches.set(`${i},${j}`, memento);
   }
 
-  fromMomento(momento: string) {
-    this.numCoins = parseInt(momento);
-  }
-}*/
-
-export class Board {
-  readonly tileWidth: number;
-  readonly tileVisibilityRadius: number;
-
-  private readonly knownCells: Map<string, Cell>;
-
-  constructor(tileWidth: number, tileVisibilityRadius: number) {
-    // ...
-    this.tileWidth = tileWidth;
-    this.tileVisibilityRadius = tileVisibilityRadius;
-    this.knownCells = new Map();
-  }
-
-  private getCanonicalCell(cell: Cell): Cell {
-    const { i, j } = cell;
-    const key = [i, j].toString();
-    // ...
-    if (!this.knownCells.has(key)) {
-      this.knownCells.set(key, cell);
+  // Restore cache state
+  restoreCacheState(i: number, j: number): void {
+    const key = `${i},${j}`;
+    if (this.savedCaches.has(key)) {
+      const memento = this.savedCaches.get(key)!;
+      const cacheFlyweight = CacheFlyweight.getCache(i, j);
+      cacheFlyweight.restoreFromMemento(memento);
     }
-    return this.knownCells.get(key)!;
   }
 
-  getCellForPoint(point: leaflet.LatLng): Cell {
-    return this.getCanonicalCell({
-      // ...
-      i: point.lat,
-      j: point.lng,
-    });
-  }
-
-  getCellBounds(cell: Cell): leaflet.LatLngBounds {
-    // ...
-    const cellGridI = Math.round((cell.i - SF_CHINATOWN.lat) / TILE_DEGREES);
-    const cellGridJ = Math.round((cell.j - SF_CHINATOWN.lng) / TILE_DEGREES);
-    return leaflet.latLngBounds([
-      [cell.i, cell.j],
-      [
-        SF_CHINATOWN.lat + (cellGridI + 1) * TILE_DEGREES,
-        SF_CHINATOWN.lng + (cellGridJ + 1) * TILE_DEGREES,
-      ],
-    ]);
-  }
-
-  getCellsNearPoint(point: leaflet.LatLng): Cell[] {
-    const resultCells: Cell[] = [];
-    const originCell = this.getCellForPoint(point);
-    // ...
-    const startI = originCell.i - this.tileVisibilityRadius;
-    const endI = originCell.i + this.tileVisibilityRadius;
-    const startJ = originCell.j - this.tileVisibilityRadius;
-    const endJ = originCell.j + this.tileVisibilityRadius;
-
-    for (let i = startI; i <= endI; i++) {
-      for (let j = startJ; j <= endJ; j++) {
-        resultCells.push(this.getCanonicalCell({ i, j }));
-      }
-    }
-    return resultCells;
+  // Check if cache state exists
+  isCacheSaved(i: number, j: number): boolean {
+    return this.savedCaches.has(`${i},${j}`);
   }
 }
 
 const app = document.querySelector<HTMLDivElement>("#app")!;
 
 const _canvas = document.getElementById("statusPanel");
-//const _ctx = canvas?.getContext("2d");
 
 const alertButton = document.createElement("button");
 alertButton.innerHTML = "Click Me";
@@ -171,72 +150,84 @@ leftButton.onclick = () => {
   playerMarker.setLatLng(newPos);
   playerPosJ = playerPosJ - 0.0001;
   map.panTo(newPos);
+  updateNeighborhood(newPos);
 };
 southButton.onclick = () => {
   const newPos = leaflet.latLng(playerPosI - 0.0001, playerPosJ);
   playerMarker.setLatLng(newPos);
   playerPosI = playerPosI - 0.0001;
   map.panTo(newPos);
+  updateNeighborhood(newPos);
 };
 upButton.onclick = () => {
   const newPos = leaflet.latLng(playerPosI, playerPosJ + 0.0001);
   playerMarker.setLatLng(newPos);
   playerPosJ = playerPosJ + 0.0001;
   map.panTo(newPos);
+  updateNeighborhood(newPos);
 };
 rightButton.onclick = () => {
   const newPos = leaflet.latLng(playerPosI + 0.0001, playerPosJ);
   playerMarker.setLatLng(newPos);
   playerPosI = playerPosI + 0.0001;
   map.panTo(newPos);
+  updateNeighborhood(newPos);
 };
 
+const cacheManager = new CacheManager();
+
 // Add caches to the map by cell numbers
-function spawnCache(cell: Cell) {
-  const newBoard: Board = new Board(16, 16);
-  const boundedCell = newBoard.getCellForPoint(leaflet.latLng(cell.i, cell.j));
-  const bounds = newBoard.getCellBounds(boundedCell);
-  // Convert cell numbers into lat/lng bounds
+function spawnCache(i: number, j: number) {
+  const cacheFlyweight = CacheFlyweight.getCache(i, j);
+
+  // Convert grid cell to lat/lng bounds
+  const origin = SF_CHINATOWN;
+  const bounds = leaflet.latLngBounds([
+    [origin.lat + i * TILE_DEGREES, origin.lng + j * TILE_DEGREES],
+    [origin.lat + (i + 1) * TILE_DEGREES, origin.lng + (j + 1) * TILE_DEGREES],
+  ]);
 
   // Add a rectangle to the map to represent the cache
   const rect = leaflet.rectangle(bounds);
   rect.addTo(map);
 
+  const isVisible = map.getBounds().intersects(bounds);
+
+  // If the cache is not visible, save its state off-screen
+  if (!isVisible && !cacheManager.isCacheSaved(i, j)) {
+    cacheManager.saveCacheState(i, j);
+    rect.remove(); // Remove the cache from the map
+  }
+
   // Handle interactions with the cache
   rect.bindPopup(() => {
     // Each cache has a random point value, mutable by the player
-    let pointValue = Math.floor(
-      luck([cell.i, cell.j, "initialValue"].toString()) * 100,
-    );
-
-    // The popup offers a description and button
     const popupDiv = document.createElement("div");
     popupDiv.innerHTML = `
-                <div>There is a cache here at "${cell.i}:${cell.j}#${
-      newBoard.getCellsNearPoint(cell).length
-    }
-    )}". It has value <span id="value">${pointValue}</span>.</div>
-                <button id="poke">poke</button><button id="place">place</button>`;
+                <div>There is a cache here at "${i},${j}". It has value <span id="value">${cacheFlyweight.pointValue}</span>.</div>
+                <button id="poke">poke</button>
+                <button id="place">place</button>`;
 
-    // Clicking the button decrements the cache's value and increments the player's points
-
+    // Handle poke interaction
     popupDiv
-      .querySelector<HTMLButtonElement>("#poke")! //take a point from cache
+      .querySelector<HTMLButtonElement>("#poke")! //Take from cache
       .addEventListener("click", () => {
-        pointValue--;
-        popupDiv.querySelector<HTMLSpanElement>("#value")!.innerHTML =
-          pointValue.toString();
-        playerPoints++;
-        statusPanel.innerHTML = `${playerPoints} points accumulated`;
+        if (cacheFlyweight.pointValue > 0) {
+          cacheFlyweight.decrementPoints();
+          popupDiv.querySelector<HTMLSpanElement>("#value")!.innerHTML =
+            cacheFlyweight.pointValue.toString();
+          playerPoints++;
+          statusPanel.innerHTML = `${playerPoints} points accumulated`;
+        }
       });
     popupDiv
-      .querySelector<HTMLButtonElement>("#place")! //Leave a point in cache
+      .querySelector<HTMLButtonElement>("#place")! //add a point to cache
       .addEventListener("click", () => {
-        if (playerPoints > 0) {
-          pointValue++;
-          playerPoints--;
+        if (playerPoints) {
+          cacheFlyweight.pointValue++;
           popupDiv.querySelector<HTMLSpanElement>("#value")!.innerHTML =
-            pointValue.toString();
+            cacheFlyweight.pointValue.toString();
+          playerPoints--;
           statusPanel.innerHTML = `${playerPoints} points accumulated`;
         }
       });
@@ -245,15 +236,36 @@ function spawnCache(cell: Cell) {
   });
 }
 
-// Look around the player's neighborhood for caches to spawn
-for (let i = -NEIGHBORHOOD_SIZE; i < NEIGHBORHOOD_SIZE; i++) {
-  for (let j = -NEIGHBORHOOD_SIZE; j < NEIGHBORHOOD_SIZE; j++) {
-    // If location i,j is lucky enough, spawn a cache!
-    if (luck([i, j].toString()) < CACHE_SPAWN_PROBABILITY) {
-      spawnCache({
-        i: SF_CHINATOWN.lat + i * TILE_DEGREES,
-        j: SF_CHINATOWN.lng + j * TILE_DEGREES,
-      });
+updateNeighborhood(SF_CHINATOWN);
+
+function updateNeighborhood(center: leaflet.LatLng) {
+  cleanupOldCaches(); //Wipe caches first
+  // Define a new neighborhood area around the player
+  const new_i = Math.floor((center.lat - SF_CHINATOWN.lat) * 10000);
+  const new_j = Math.floor((center.lng - SF_CHINATOWN.lng) * 10000);
+
+  // Define a new neighborhood area around the player
+  const newNeighborhood = new Set<string>(); // Store grid coordinates of new caches
+
+  // Spawn new caches in the player's neighborhood (around the new coordinates)
+  for (let i = new_i - NEIGHBORHOOD_SIZE; i <= new_i + NEIGHBORHOOD_SIZE; i++) {
+    for (
+      let j = new_j - NEIGHBORHOOD_SIZE;
+      j <= new_j + NEIGHBORHOOD_SIZE;
+      j++
+    ) {
+      if (luck([i, j].toString()) < CACHE_SPAWN_PROBABILITY) {
+        spawnCache(i, j); // Call function to spawn a cache in this grid cell
+      }
+      newNeighborhood.add(`${i},${j}`);
     }
   }
+}
+
+function cleanupOldCaches() {
+  map.eachLayer(function (layer: leaflet.layer) {
+    if (layer instanceof leaflet.Rectangle) {
+      map.removeLayer(layer);
+    }
+  });
 }
