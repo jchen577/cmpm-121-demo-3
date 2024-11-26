@@ -10,6 +10,7 @@ import "./leafletWorkaround.ts";
 // Deterministic random number generator
 import luck from "./luck.ts";
 //import { latLng } from "npm:@types/leaflet@^1.9.14";
+import { PlayerStorage } from "./playerStorage.ts";
 
 class CacheMemento {
   constructor(public i: number, public j: number, public pointValue: number) {}
@@ -125,18 +126,9 @@ leaflet
   .addTo(map);
 
 // Add a marker to represent the player
-const savedPosition = localStorage.getItem("playerPosition");
-let playerPosI: number;
-let playerPosJ: number;
-if (savedPosition) {
-  // If a position was saved in localStorage, use it to update the player's position
-  const position = JSON.parse(savedPosition);
-  playerPosI = position.lat;
-  playerPosJ = position.lng;
-} else {
-  playerPosI = SF_CHINATOWN.lat;
-  playerPosJ = SF_CHINATOWN.lng;
-}
+const savedPosition = PlayerStorage.getPlayerPosition();
+let playerPosI: number = savedPosition.lat;
+let playerPosJ: number = savedPosition.lng;
 const playerMarker = leaflet.marker(leaflet.latLng(playerPosI, playerPosJ));
 playerMarker.bindTooltip("You are here");
 playerMarker.addTo(map);
@@ -167,10 +159,7 @@ resetButton.innerHTML = "🚮";
 app.append(resetButton);
 resetButton.onclick = () => {
   if (confirm("Are you sure you want to reset all progress?")) {
-    localStorage.setItem(
-      "playerPosition",
-      JSON.stringify({ lat: SF_CHINATOWN.lat, lng: SF_CHINATOWN.lng }),
-    );
+    PlayerStorage.savePlayerPosition(SF_CHINATOWN.lat, SF_CHINATOWN.lng);
     playerPosI = SF_CHINATOWN.lat;
     playerPosJ = SF_CHINATOWN.lng;
     playerMarker.setLatLng(leaflet.latLng(SF_CHINATOWN.lat, SF_CHINATOWN.lng));
@@ -207,10 +196,7 @@ leftButton.onclick = () => {
   playerMarker.setLatLng(newPos);
   playerPosJ = playerPosJ - 0.0001;
   map.panTo(newPos);
-  localStorage.setItem(
-    "playerPosition",
-    JSON.stringify({ lat: newPos.lat, lng: newPos.lng }),
-  );
+  PlayerStorage.savePlayerPosition(newPos.lat, newPos.lng);
   updateNeighborhood(newPos);
 };
 southButton.onclick = () => {
@@ -218,10 +204,7 @@ southButton.onclick = () => {
   playerMarker.setLatLng(newPos);
   playerPosI = playerPosI - 0.0001;
   map.panTo(newPos);
-  localStorage.setItem(
-    "playerPosition",
-    JSON.stringify({ lat: newPos.lat, lng: newPos.lng }),
-  );
+  PlayerStorage.savePlayerPosition(newPos.lat, newPos.lng);
   updateNeighborhood(newPos);
 };
 upButton.onclick = () => {
@@ -229,10 +212,7 @@ upButton.onclick = () => {
   playerMarker.setLatLng(newPos);
   playerPosJ = playerPosJ + 0.0001;
   map.panTo(newPos);
-  localStorage.setItem(
-    "playerPosition",
-    JSON.stringify({ lat: newPos.lat, lng: newPos.lng }),
-  );
+  PlayerStorage.savePlayerPosition(newPos.lat, newPos.lng);
   updateNeighborhood(newPos);
 };
 rightButton.onclick = () => {
@@ -240,10 +220,7 @@ rightButton.onclick = () => {
   playerMarker.setLatLng(newPos);
   playerPosI = playerPosI + 0.0001;
   map.panTo(newPos);
-  localStorage.setItem(
-    "playerPosition",
-    JSON.stringify({ lat: newPos.lat, lng: newPos.lng }),
-  );
+  PlayerStorage.savePlayerPosition(newPos.lat, newPos.lng);
   updateNeighborhood(newPos);
 };
 
