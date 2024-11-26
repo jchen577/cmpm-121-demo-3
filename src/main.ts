@@ -311,20 +311,23 @@ function spawnCache(i: number, j: number) {
 
 updateNeighborhood(SF_CHINATOWN);
 
-function updateNeighborhood(center: leaflet.LatLng) {
-  cleanupOldCaches(); //Wipe caches first
-  // Define a new neighborhood area around the player
-  const new_i = Math.floor((center.lat - SF_CHINATOWN.lat) * 10000);
-  const new_j = Math.floor((center.lng - SF_CHINATOWN.lng) * 10000);
+function computeGridBounds(center: leaflet.LatLng) {
+  return [
+    Math.floor((center.lat - SF_CHINATOWN.lat) * 10000),
+    Math.floor((center.lng - SF_CHINATOWN.lng) * 10000),
+  ];
+}
 
-  // Define a new neighborhood area around the player
-  const newNeighborhood = new Set<string>(); // Store grid coordinates of new caches
-
-  // Spawn new caches in the player's neighborhood (around the new coordinates)
-  for (let i = new_i - NEIGHBORHOOD_SIZE; i <= new_i + NEIGHBORHOOD_SIZE; i++) {
+function spawnNeighborhoodCaches(newGrid: number[]) {
+  const newNeighborhood = new Set<string>();
+  for (
+    let i = newGrid[0] - NEIGHBORHOOD_SIZE;
+    i <= newGrid[0] + NEIGHBORHOOD_SIZE;
+    i++
+  ) {
     for (
-      let j = new_j - NEIGHBORHOOD_SIZE;
-      j <= new_j + NEIGHBORHOOD_SIZE;
+      let j = newGrid[1] - NEIGHBORHOOD_SIZE;
+      j <= newGrid[1] + NEIGHBORHOOD_SIZE;
       j++
     ) {
       if (luck([i, j].toString()) < CACHE_SPAWN_PROBABILITY) {
@@ -333,6 +336,15 @@ function updateNeighborhood(center: leaflet.LatLng) {
       newNeighborhood.add(`${i},${j}`);
     }
   }
+}
+
+function updateNeighborhood(center: leaflet.LatLng) {
+  cleanupOldCaches(); //Wipe caches first
+  // Define a new neighborhood area around the player
+  const newGrid = computeGridBounds(center);
+
+  // Define a new neighborhood area around the player
+  spawnNeighborhoodCaches(newGrid);
 }
 
 function cleanupOldCaches() {
