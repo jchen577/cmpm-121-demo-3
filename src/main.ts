@@ -10,7 +10,7 @@ import "./leafletWorkaround.ts";
 // Deterministic random number generator
 import luck from "./luck.ts";
 //import { latLng } from "npm:@types/leaflet@^1.9.14";
-import { PlayerStorage } from "./playerStorage.ts";
+import { PlayerStorage } from "./playerStorage";
 
 class CacheMemento {
   constructor(public i: number, public j: number, public pointValue: number) {}
