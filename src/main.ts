@@ -10,7 +10,7 @@ import "./leafletWorkaround.ts";
 // Deterministic random number generator
 import luck from "./luck.ts";
 //import { latLng } from "npm:@types/leaflet@^1.9.14";
-import { PlayerStorage } from "./playerStorage";
+import { PlayerStorage } from "./playerStorage.ts";
 
 class CacheMemento {
   constructor(public i: number, public j: number, public pointValue: number) {}
@@ -127,6 +127,7 @@ leaflet
 
 // Add a marker to represent the player
 const savedPosition = PlayerStorage.getPlayerPosition();
+console.log(savedPosition);
 let playerPosI: number = savedPosition.lat;
 let playerPosJ: number = savedPosition.lng;
 const playerMarker = leaflet.marker(leaflet.latLng(playerPosI, playerPosJ));
