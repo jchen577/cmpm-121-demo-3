@@ -127,7 +127,7 @@ leaflet
 
 // Add a marker to represent the player
 const savedPosition = PlayerStorage.getPlayerPosition();
-console.log(savedPosition);
+//console.log(savedPosition);
 let playerPosI: number = savedPosition.lat;
 let playerPosJ: number = savedPosition.lng;
 const playerMarker = leaflet.marker(leaflet.latLng(playerPosI, playerPosJ));
