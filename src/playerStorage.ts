@@ -1,11 +1,10 @@
-import leaflet from "leaflet";
 export class PlayerStorage {
   static getPlayerPosition() {
     const savedPosition = localStorage.getItem("playerPosition");
     if (savedPosition) {
       return JSON.parse(savedPosition);
     } else {
-      return leaflet.latLng(37.793439, -122.410296);
+      return { lat: 37.793439, lng: -122.410296 };
     }
   }
 
